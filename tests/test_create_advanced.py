@@ -99,7 +99,7 @@ class TestQueryArtifactInfo:
         archive_path = Path(result["archive_path"])
 
         # Query info from file:// URL
-        file_url = f"file://{archive_path.as_posix()}"
+        file_url = archive_path.as_uri()
         info = query_artifact_info(file_url, compute_tree_hash=True)
 
         assert "sha256" in info
@@ -119,7 +119,7 @@ class TestQueryArtifactInfo:
         result = create_artifact(src_dir, tmp_path / "test.tar.gz", compression="gz")
         archive_path = Path(result["archive_path"])
 
-        file_url = f"file://{archive_path.as_posix()}"
+        file_url = archive_path.as_uri()
         info = query_artifact_info(file_url, compute_tree_hash=False)
 
         assert "sha256" in info
@@ -133,7 +133,7 @@ class TestQueryArtifactInfo:
         bad_file = tmp_path / "notarchive.txt"
         bad_file.write_text("not a tar file")
 
-        file_url = f"file://{bad_file.as_posix()}"
+        file_url = bad_file.as_uri()
 
         # Should handle gracefully (warning but no tree hash)
         info = query_artifact_info(file_url, compute_tree_hash=True)
@@ -159,7 +159,7 @@ class TestAddArtifact:
         archive_path = Path(result["archive_path"])
 
         toml_path = tmp_path / "Artifacts.toml"
-        file_url = f"file://{archive_path.as_posix()}"
+        file_url = archive_path.as_uri()
 
         # Add artifact from URL
         info = add_artifact(
@@ -235,7 +235,7 @@ class TestAddArtifact:
 
         result = create_artifact(src_dir, tmp_path / "new.tar.xz", compression="xz")
         archive_path = Path(result["archive_path"])
-        file_url = f"file://{archive_path.as_posix()}"
+        file_url = archive_path.as_uri()
 
         # Add with force=True
         info = add_artifact(
@@ -261,7 +261,7 @@ class TestAddArtifact:
         archive_path = Path(result["archive_path"])
 
         toml_path = tmp_path / "Artifacts.toml"
-        file_url = f"file://{archive_path.as_posix()}"
+        file_url = archive_path.as_uri()
 
         add_artifact(
             toml_path=toml_path,

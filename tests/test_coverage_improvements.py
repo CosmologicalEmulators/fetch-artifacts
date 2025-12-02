@@ -69,7 +69,7 @@ git-tree-sha1 = "abc123"
     sha256 = "badsha256"
 
     [[TestData.download]]
-    url = "file://{archive_path.as_posix()}"
+    url = "{archive_path.as_uri()}"
     sha256 = "{sha256}"
 ''')
 
@@ -155,7 +155,7 @@ git-tree-sha1 = "abc123"
 git-tree-sha1 = "abc123"
 
     [[BadChecksum.download]]
-    url = "file://{archive_path.as_posix()}"
+    url = "{archive_path.as_uri()}"
     sha256 = "{wrong_sha256}"
 ''')
 
@@ -194,7 +194,7 @@ class TestConvenienceFunctions:
 git-tree-sha1 = "xyz789"
 
     [[MyData.download]]
-    url = "file://{archive_path.as_posix()}"
+    url = "{archive_path.as_uri()}"
     sha256 = "{sha256}"
 ''')
 
@@ -286,7 +286,7 @@ class TestVerboseOutput:
 git-tree-sha1 = "abc123"
 
     [[VerboseTest.download]]
-    url = "file://{archive_path.as_posix()}"
+    url = "{archive_path.as_uri()}"
     sha256 = "{sha256}"
 ''')
 
