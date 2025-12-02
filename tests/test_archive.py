@@ -151,7 +151,7 @@ class TestArchiveExtraction:
 
     def test_extract_single_root_dir(self, tmp_path):
         """Extract archive with single root directory."""
-        from fetch_artifacts.artifacts import ArtifactManager
+        from fetch_artifacts.utils import extract_archive
 
         # Create archive with single root
         src_dir = tmp_path / "myartifact"
@@ -162,21 +162,15 @@ class TestArchiveExtraction:
         with tarfile.open(archive_path, "w:gz") as tar:
             tar.add(src_dir, arcname="myartifact")
 
-        # Create minimal TOML
-        toml_path = tmp_path / "Artifacts.toml"
-        toml_path.write_text('[Test]\ngit-tree-sha1 = "abc"\n')
-
-        manager = ArtifactManager(toml_path, cache_dir=tmp_path / "cache")
-
         # Test extraction logic
         extract_to = tmp_path / "extracted"
-        manager._extract_archive(archive_path, extract_to)
+        extract_archive(archive_path, extract_to)
 
         assert (extract_to / "myartifact" / "data.txt").exists()
 
     def test_extract_multiple_items(self, tmp_path):
         """Extract archive with multiple items at root."""
-        from fetch_artifacts.artifacts import ArtifactManager
+        from fetch_artifacts.utils import extract_archive
 
         # Create archive with multiple root items
         archive_path = tmp_path / "multi.tar.gz"
@@ -190,13 +184,8 @@ class TestArchiveExtraction:
             file2.write_text("content2")
             tar.add(file2, arcname="file2.txt")
 
-        toml_path = tmp_path / "Artifacts.toml"
-        toml_path.write_text('[Test]\ngit-tree-sha1 = "abc"\n')
-
-        manager = ArtifactManager(toml_path, cache_dir=tmp_path / "cache")
-
         extract_to = tmp_path / "extracted"
-        manager._extract_archive(archive_path, extract_to)
+        extract_archive(archive_path, extract_to)
 
         assert (extract_to / "file1.txt").exists()
         assert (extract_to / "file2.txt").exists()

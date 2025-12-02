@@ -6,7 +6,6 @@ automatic downloading, caching, and checksum verification.
 """
 
 import hashlib
-import inspect
 import os
 import shutil
 import tarfile
@@ -17,14 +16,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 from urllib.error import URLError
 
-# Use tomllib (Python 3.11+) or fall back to tomli
-try:
-    import tomllib
-except ImportError:
-    try:
-        import tomli as tomllib
-    except ImportError:
-        tomllib = None
+from ._compat import tomllib
+from .utils import download_file, extract_archive, get_extracted_root
 
 
 # Global configuration
@@ -44,7 +37,7 @@ class ArtifactEntry:
     """Represents a single artifact entry from Artifacts.toml."""
     name: str
     git_tree_sha1: Optional[str] = None
-    lazy: bool = True
+    lazy: bool = True  # NOTE: Currently not used - all artifacts are lazy-loaded
     downloads: List[DownloadInfo] = field(default_factory=list)
 
     # Platform-specific fields (optional)
@@ -278,7 +271,7 @@ class ArtifactManager:
 
         try:
             # Download with progress
-            self._download_file(dl.url, tmp_path)
+            download_file(dl.url, tmp_path, verbose=self.verbose)
 
             # Verify checksum
             if dl.sha256:
@@ -300,17 +293,10 @@ class ArtifactManager:
             # Extract to temporary directory first
             with tempfile.TemporaryDirectory() as tmp_extract:
                 tmp_extract_path = Path(tmp_extract)
-                self._extract_archive(tmp_path, tmp_extract_path)
+                extract_archive(tmp_path, tmp_extract_path)
 
                 # Find the root directory in the extracted content
-                extracted_items = list(tmp_extract_path.iterdir())
-
-                if len(extracted_items) == 1 and extracted_items[0].is_dir():
-                    # Single directory - move its contents
-                    src_dir = extracted_items[0]
-                else:
-                    # Multiple items - use the temp extract dir itself
-                    src_dir = tmp_extract_path
+                src_dir = get_extracted_root(tmp_extract_path)
 
                 # Move to final location
                 shutil.copytree(src_dir, artifact_dir)
@@ -347,52 +333,11 @@ class ArtifactManager:
         else:
             return ".tar.gz"  # Default
 
-    def _download_file(self, url: str, destination: Path):
-        """Download file from URL."""
-        def progress_hook(block_num, block_size, total_size):
-            if self.verbose and total_size > 0:
-                downloaded = block_num * block_size
-                percent = min(downloaded * 100 / total_size, 100)
-                mb_downloaded = downloaded / (1024 * 1024)
-                mb_total = total_size / (1024 * 1024)
-                print(
-                    f"\r  {percent:.1f}% ({mb_downloaded:.1f}/{mb_total:.1f} MB)",
-                    end="",
-                    flush=True
-                )
-
-        try:
-            urllib.request.urlretrieve(
-                url,
-                destination,
-                reporthook=progress_hook if self.verbose else None
-            )
-            if self.verbose:
-                print()  # New line after progress
-        except URLError as e:
-            raise RuntimeError(f"Download failed: {e}")
-
     def _verify_checksum(self, filepath: Path, expected_sha256: str) -> bool:
         """Verify SHA256 checksum of file."""
-        sha256_hash = hashlib.sha256()
-        with open(filepath, "rb") as f:
-            for chunk in iter(lambda: f.read(8192), b""):
-                sha256_hash.update(chunk)
-        actual = sha256_hash.hexdigest()
+        from .create import compute_sha256
+        actual = compute_sha256(filepath)
         return actual.lower() == expected_sha256.lower()
-
-    def _extract_archive(self, archive_path: Path, extract_to: Path):
-        """Extract archive to directory."""
-        extract_to.mkdir(parents=True, exist_ok=True)
-
-        if str(archive_path).endswith(".zip"):
-            import zipfile
-            with zipfile.ZipFile(archive_path, "r") as zf:
-                zf.extractall(extract_to)
-        else:
-            # Use tarfile for tar archives (handles gz, xz, bz2 automatically)
-            with tarfile.open(archive_path, "r:*") as tf:
-                tf.extractall(extract_to)
 
     def exists(self, name: str) -> bool:
         """Check if artifact exists in cache."""
@@ -446,39 +391,19 @@ def get_artifacts_toml(search_path: Optional[Path] = None) -> Optional[Path]:
     Find Artifacts.toml file.
 
     Searches in the following order:
-    1. Provided search_path
-    2. Calling module's directory
-    3. Current working directory
-    4. Parent directories up to root
+    1. Provided search_path (if given)
+    2. Current working directory (Artifacts.toml or JuliaArtifacts.toml)
 
     Returns None if not found.
     """
-    candidates = []
+    candidates = [
+        Path(search_path) if search_path else None,
+        Path.cwd() / "Artifacts.toml",
+        Path.cwd() / "JuliaArtifacts.toml",  # Julia compatibility
+    ]
 
-    if search_path:
-        candidates.append(Path(search_path))
-
-    # Try to find the calling module's directory
-    frame = inspect.currentframe()
-    if frame and frame.f_back and frame.f_back.f_back:
-        caller_file = frame.f_back.f_back.f_globals.get("__file__")
-        if caller_file:
-            caller_dir = Path(caller_file).parent
-            candidates.append(caller_dir / "Artifacts.toml")
-            candidates.append(caller_dir.parent / "Artifacts.toml")
-
-    # Current directory
-    candidates.append(Path.cwd() / "Artifacts.toml")
-
-    # Also check for JuliaArtifacts.toml (Julia convention)
-    expanded_candidates = []
-    for c in candidates:
-        expanded_candidates.append(c)
-        if c.name == "Artifacts.toml":
-            expanded_candidates.append(c.parent / "JuliaArtifacts.toml")
-
-    for candidate in expanded_candidates:
-        if candidate.exists():
+    for candidate in candidates:
+        if candidate and candidate.exists():
             return candidate
 
     return None
@@ -558,23 +483,6 @@ def artifact(
     """
     manager = load_artifacts(toml_path, verbose=verbose)
     return manager.get_path(name)
-
-
-def artifact_path(
-    name: str,
-    toml_path: Optional[Union[str, Path]] = None,
-) -> Path:
-    """
-    Get path to artifact without downloading.
-
-    Returns the path where the artifact would be cached,
-    regardless of whether it exists.
-    """
-    manager = load_artifacts(toml_path)
-    if name not in manager.artifacts:
-        raise KeyError(f"Artifact '{name}' not defined")
-    entry = manager.artifacts[name]
-    return manager._get_artifact_dir(entry)
 
 
 def artifact_exists(

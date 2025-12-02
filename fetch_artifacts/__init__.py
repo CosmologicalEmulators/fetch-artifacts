@@ -18,7 +18,6 @@ Usage:
 
 from .artifacts import (
     artifact,
-    artifact_path,
     artifact_exists,
     load_artifacts,
     ArtifactManager,
@@ -44,7 +43,6 @@ __version__ = "0.1.0"
 __all__ = [
     # Artifact access
     "artifact",
-    "artifact_path",
     "artifact_exists",
     "load_artifacts",
     "ArtifactManager",

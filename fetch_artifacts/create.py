@@ -16,19 +16,8 @@ import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-# Use tomllib for reading, tomlkit for writing (preserves formatting)
-try:
-    import tomllib
-except ImportError:
-    try:
-        import tomli as tomllib
-    except ImportError:
-        tomllib = None
-
-try:
-    import tomlkit
-except ImportError:
-    tomlkit = None
+from ._compat import tomllib, tomlkit
+from .utils import download_file, extract_archive, get_extracted_root
 
 
 def compute_sha256(filepath: Union[str, Path]) -> str:
@@ -231,6 +220,7 @@ def bind_artifact(
         SHA256 hash of the download file
     lazy : bool
         Whether artifact should be lazy-loaded (default: True)
+        NOTE: Currently not implemented - all artifacts are lazy-loaded
     force : bool
         Overwrite existing artifact with same name
 
@@ -404,7 +394,7 @@ def query_artifact_info(url: str, compute_tree_hash: bool = True) -> Dict[str, A
 
     try:
         print(f"Downloading {url}...")
-        urllib.request.urlretrieve(url, tmp_path)
+        download_file(url, tmp_path, verbose=False)
 
         sha256 = compute_sha256(tmp_path)
         result = {"sha256": sha256, "url": url}
@@ -414,15 +404,10 @@ def query_artifact_info(url: str, compute_tree_hash: bool = True) -> Dict[str, A
             with tempfile.TemporaryDirectory() as extract_dir:
                 extract_path = Path(extract_dir)
                 try:
-                    with tarfile.open(tmp_path, "r:*") as tar:
-                        tar.extractall(extract_path)
+                    extract_archive(tmp_path, extract_path)
 
                     # Find root directory
-                    items = list(extract_path.iterdir())
-                    if len(items) == 1 and items[0].is_dir():
-                        content_dir = items[0]
-                    else:
-                        content_dir = extract_path
+                    content_dir = get_extracted_root(extract_path)
 
                     result["git_tree_sha1"] = compute_git_tree_sha1(content_dir)
                 except tarfile.TarError:
@@ -460,6 +445,7 @@ def add_artifact(
         URL to download the tarball from
     lazy : bool
         Whether artifact should be lazy-loaded (default: True)
+        NOTE: Currently not implemented - all artifacts are lazy-loaded
     force : bool
         Overwrite existing artifact with same name (default: False)
     clear : bool
@@ -522,26 +508,9 @@ def add_artifact(
             print(f"Downloading {tarball_url}...")
 
         # Download with progress
-        def progress_hook(block_num, block_size, total_size):
-            if verbose and total_size > 0:
-                downloaded = block_num * block_size
-                percent = min(downloaded * 100 / total_size, 100)
-                mb_downloaded = downloaded / (1024 * 1024)
-                mb_total = total_size / (1024 * 1024)
-                print(
-                    f"\r  {percent:.1f}% ({mb_downloaded:.1f}/{mb_total:.1f} MB)",
-                    end="",
-                    flush=True
-                )
-
-        urllib.request.urlretrieve(
-            tarball_url,
-            tmp_path,
-            reporthook=progress_hook if verbose else None
-        )
+        download_file(tarball_url, tmp_path, verbose=verbose)
 
         if verbose:
-            print()  # New line after progress
             print("Computing hashes...")
 
         # Compute SHA256 of the tarball
@@ -552,15 +521,10 @@ def add_artifact(
         with tempfile.TemporaryDirectory() as extract_dir:
             extract_path = Path(extract_dir)
             try:
-                with tarfile.open(tmp_path, "r:*") as tar:
-                    tar.extractall(extract_path)
+                extract_archive(tmp_path, extract_path)
 
                 # Find root directory
-                items = list(extract_path.iterdir())
-                if len(items) == 1 and items[0].is_dir():
-                    content_dir = items[0]
-                else:
-                    content_dir = extract_path
+                content_dir = get_extracted_root(extract_path)
 
                 git_tree_sha1 = compute_git_tree_sha1(content_dir)
             except tarfile.TarError as e:

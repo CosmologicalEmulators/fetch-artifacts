@@ -14,7 +14,6 @@ A Julia-style artifact system for Python. Manage large binary files with TOML-ba
 - **Lazy loading**: Download artifacts only when accessed
 - **Checksum verification**: SHA256 verification for all downloads
 - **Multiple mirrors**: Support for fallback download sources
-- **Cross-platform**: Works on Linux, macOS, and Windows
 - **Simple API**: Minimal code to load and use artifacts
 
 ## Installation
@@ -23,71 +22,33 @@ A Julia-style artifact system for Python. Manage large binary files with TOML-ba
 pip install fetch-artifacts
 ```
 
-Or with Poetry:
-
-```bash
-poetry add fetch-artifacts
-```
-
-## Quick Start
+## Usage
 
 ### 1. Create an Artifacts.toml file
 
 ```toml
 [MyDataset]
 git-tree-sha1 = "d309b571f5693718c8612d387820a409479fe506"
-lazy = true
 
     [[MyDataset.download]]
     url = "https://example.com/dataset.tar.xz"
     sha256 = "d309b571f5693718c8612d387820a409479fe50688d4c46c87ba8662c6acc09b"
 ```
 
-### 2. Load and use artifacts in Python
+### 2. Load artifacts in Python
 
 ```python
 from fetch_artifacts import artifact
 
 # Get path to the artifact (downloads if needed)
 dataset_path = artifact("MyDataset")
-print(f"Dataset is at: {dataset_path}")
 
 # Use the artifact
 import pandas as pd
 data = pd.read_csv(dataset_path / "data.csv")
 ```
 
-## Usage
-
-### Loading Artifacts
-
-```python
-from fetch_artifacts import artifact, artifact_path, artifact_exists
-
-# Get artifact path (triggers download if needed)
-path = artifact("MyArtifact")
-
-# Check if artifact exists without downloading
-if artifact_exists("MyArtifact"):
-    print("Artifact is cached")
-
-# Get path without auto-download
-path = artifact_path("MyArtifact")  # Returns None if not cached
-```
-
-### Custom Cache Directory
-
-```python
-from fetch_artifacts import set_cache_dir, get_cache_dir
-
-# Set custom cache location
-set_cache_dir("/path/to/cache")
-
-# Get current cache directory
-cache_dir = get_cache_dir()  # Default: ~/.fetch_artifacts
-```
-
-### Creating Artifacts
+### 3. Create and publish artifacts
 
 ```python
 from fetch_artifacts import create_artifact, bind_artifact
@@ -99,9 +60,6 @@ result = create_artifact(
     compression="xz"
 )
 
-print(f"git-tree-sha1: {result['git_tree_sha1']}")
-print(f"sha256: {result['sha256']}")
-
 # Add to Artifacts.toml
 bind_artifact(
     toml_path="Artifacts.toml",
@@ -112,12 +70,12 @@ bind_artifact(
 )
 ```
 
-### Adding Existing Remote Files
+### 4. Add existing remote files
 
 ```python
 from fetch_artifacts import add_artifact
 
-# Download, compute hashes, and add to Artifacts.toml
+# Download, compute hashes, and add to Artifacts.toml in one step
 add_artifact(
     toml_path="Artifacts.toml",
     name="RemoteDataset",
@@ -125,43 +83,33 @@ add_artifact(
 )
 ```
 
-### Managing Cache
+### Advanced Usage
 
+**Custom cache directory:**
+```python
+from fetch_artifacts import set_cache_dir
+set_cache_dir("/path/to/cache")
+```
+
+**Check if artifact exists:**
+```python
+from fetch_artifacts import artifact_exists
+if artifact_exists("MyArtifact"):
+    print("Artifact is cached")
+```
+
+**Clear cache:**
 ```python
 from fetch_artifacts import clear_artifact_cache
-
-# Clear specific artifact
-clear_artifact_cache("MyArtifact")
-
-# Clear all artifacts
-clear_artifact_cache()
+clear_artifact_cache("MyArtifact")  # Clear specific artifact
+clear_artifact_cache()              # Clear all artifacts
 ```
 
-## Artifacts.toml Format
-
-```toml
-[ArtifactName]
-git-tree-sha1 = "abc123..."  # Content hash (required)
-lazy = true                   # Lazy loading (default: true)
-
-    [[ArtifactName.download]]
-    url = "https://primary.com/data.tar.xz"
-    sha256 = "def456..."
-
-    [[ArtifactName.download]]
-    url = "https://mirror.com/data.tar.xz"  # Fallback mirror
-    sha256 = "def456..."
-```
-
-### Custom Metadata
-
-You can add custom fields for application-specific metadata:
-
+**Custom metadata:**
 ```toml
 [MyEmulator]
 git-tree-sha1 = "abc123..."
 description = "Neural network emulator for cosmology"
-has_noise = false
 version = "2.0"
 
     [[MyEmulator.download]]
@@ -169,101 +117,47 @@ version = "2.0"
     sha256 = "def456..."
 ```
 
-Access metadata via the ArtifactManager:
-
+Access metadata:
 ```python
 from fetch_artifacts import load_artifacts
 
 manager = load_artifacts("Artifacts.toml")
-entry = manager.artifacts["MyEmulator"]
-print(entry.metadata)  # {"description": "...", "has_noise": False, "version": "2.0"}
+metadata = manager.artifacts["MyEmulator"].metadata
+print(metadata["description"])  # "Neural network emulator for cosmology"
 ```
-
-## API Reference
-
-### Core Functions
-
-- `artifact(name, toml_path=None)` - Get artifact path, downloading if needed
-- `artifact_path(name, toml_path=None)` - Get artifact path without downloading
-- `artifact_exists(name, toml_path=None)` - Check if artifact is cached
-- `load_artifacts(toml_path=None, cache_dir=None)` - Load ArtifactManager
-
-### Cache Management
-
-- `get_cache_dir()` - Get global cache directory
-- `set_cache_dir(path)` - Set global cache directory
-- `clear_artifact_cache(name=None, toml_path=None)` - Clear cache
-
-### Creating Artifacts
-
-- `create_artifact(directory, archive_path=None, compression='xz')` - Create artifact archive
-- `compute_sha256(filepath)` - Compute SHA256 hash
-- `compute_git_tree_sha1(directory)` - Compute git-tree-sha1 hash
-
-### Binding Artifacts
-
-- `bind_artifact(toml_path, name, git_tree_sha1, download_url, sha256, lazy=True, force=False)` - Add artifact to TOML
-- `unbind_artifact(toml_path, name)` - Remove artifact from TOML
-- `add_artifact(toml_path, name, tarball_url, lazy=True, force=False)` - Download and add artifact
-- `add_download_source(toml_path, name, download_url, sha256)` - Add mirror URL
 
 ## Why fetch-artifacts?
 
-Scientific computing often requires large datasets or model files. Managing these with git-lfs or direct downloads has drawbacks:
+Managing large datasets or model files in scientific computing has several challenges:
 
-- **git-lfs**: Expensive, coupled to git history, doesn't deduplicate
-- **Direct downloads**: No versioning, no checksums, manual management
-- **fetch-artifacts**: Content-addressable, verified, cached, platform-independent
+- **git-lfs**: Expensive, coupled to git history, doesn't deduplicate across projects
+- **Direct downloads**: No versioning, no automatic checksums, manual management
+- **fetch-artifacts**: Content-addressable, automatic verification, global caching, platform-independent
 
-Inspired by Julia's Pkg.Artifacts system, fetch-artifacts brings the same workflow to Python.
+Inspired by Julia's Pkg.Artifacts, fetch-artifacts brings the same robust workflow to Python.
 
-## Comparison with Julia
+## Artifacts.toml Format
 
-fetch-artifacts uses the same `Artifacts.toml` format and similar API:
+```toml
+[ArtifactName]
+git-tree-sha1 = "abc123..."  # Content hash (required)
 
-**Julia:**
-```julia
-using Pkg.Artifacts
+    [[ArtifactName.download]]
+    url = "https://primary.com/data.tar.xz"
+    sha256 = "def456..."
 
-# Get artifact path
-dataset_dir = artifact"MyDataset"
+    [[ArtifactName.download]]  # Optional fallback mirror
+    url = "https://mirror.com/data.tar.xz"
+    sha256 = "def456..."
 ```
-
-**Python:**
-```python
-from fetch_artifacts import artifact
-
-# Get artifact path
-dataset_dir = artifact("MyDataset")
-```
-
-Both systems:
-- Use content-addressable storage (git-tree-sha1)
-- Support lazy loading
-- Verify checksums (SHA256)
-- Allow multiple download mirrors
-- Cache artifacts globally
 
 ## Development
-
-### Setup
 
 ```bash
 git clone https://github.com/CosmologicalEmulators/fetch-artifacts.git
 cd fetch-artifacts
 poetry install
-```
-
-### Running Tests
-
-```bash
-poetry run pytest tests/ -v
-```
-
-### Running Tests with Coverage
-
-```bash
-poetry run pytest tests/ -v --cov=fetch_artifacts --cov-report=term --cov-report=html
+poetry run pytest tests/ -v --cov=fetch_artifacts
 ```
 
 ## License
@@ -279,19 +173,6 @@ Contributions welcome! Please:
 3. Add tests for new functionality
 4. Ensure all tests pass
 5. Submit a pull request
-
-## Citation
-
-If you use fetch-artifacts in your research, please cite:
-
-```bibtex
-@software{fetch_artifacts,
-  author = {Bonici, Marco},
-  title = {fetch-artifacts: Julia-style artifact management for Python},
-  year = {2024},
-  url = {https://github.com/CosmologicalEmulators/fetch-artifacts}
-}
-```
 
 ## Links
 
