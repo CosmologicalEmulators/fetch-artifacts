@@ -1,6 +1,7 @@
 # fetch-artifacts
 
 [![Tests](https://github.com/CosmologicalEmulators/fetch-artifacts/actions/workflows/tests.yml/badge.svg)](https://github.com/CosmologicalEmulators/fetch-artifacts/actions/workflows/tests.yml)
+[![codecov](https://codecov.io/gh/CosmologicalEmulators/fetch-artifacts/graph/badge.svg)](https://codecov.io/gh/CosmologicalEmulators/fetch-artifacts)
 [![Python Version](https://img.shields.io/pypi/pyversions/fetch-artifacts.svg)](https://pypi.org/project/fetch-artifacts/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
