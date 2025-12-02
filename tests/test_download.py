@@ -83,12 +83,13 @@ class TestCaching:
 
         # Create manager
         toml_path = tmp_path / "Artifacts.toml"
+        # Use as_posix() to convert Windows paths to forward slashes for TOML
         toml_path.write_text(f'''
 [TestData]
 git-tree-sha1 = "abc123"
 
     [[TestData.download]]
-    url = "file://{archive_path}"
+    url = "file://{archive_path.as_posix()}"
     sha256 = "{sha256}"
 ''')
 
