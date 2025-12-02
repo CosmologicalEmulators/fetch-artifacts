@@ -586,19 +586,6 @@ def artifact_exists(
     return manager.exists(name)
 
 
-def ensure_artifact(
-    name: str,
-    toml_path: Optional[Union[str, Path]] = None,
-    verbose: bool = False,
-) -> Path:
-    """
-    Ensure artifact is downloaded and return its path.
-
-    Alias for artifact() for clarity in some contexts.
-    """
-    return artifact(name, toml_path, verbose=verbose)
-
-
 def clear_artifact_cache(
     name: Optional[str] = None,
     toml_path: Optional[Union[str, Path]] = None,
