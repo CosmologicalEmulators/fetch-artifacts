@@ -5,6 +5,9 @@ description = "Julia-style Artifacts system for Python - TOML-based artifact man
 authors = ["Marco Bonici <bonici.marco@gmail.com>"]
 readme = "README.md"
 license = "MIT"
+homepage = "https://github.com/CosmologicalEmulators/fetch-artifacts"
+repository = "https://github.com/CosmologicalEmulators/fetch-artifacts"
+documentation = "https://github.com/CosmologicalEmulators/fetch-artifacts"
 packages = [{include = "fetch_artifacts"}]
 keywords = [
     "artifacts",
